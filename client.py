@@ -16,10 +16,7 @@ class Client:
             print("recving")
             time.sleep(1)
             msg = self.s.recv(1024)
-            print("\n" * 3)
-            print("=====================")
-            print(msg.decode())
-            print("=====================")
+            print(msg.decode(), "\n")
 
     def run(self):
         threading.Thread(target=self.recv).start()

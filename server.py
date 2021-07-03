@@ -7,10 +7,14 @@ import select
 from typing import Tuple
 
 
+# TODO client 端主动断开连接，server会抛出异常
+# Expecting value: line 1 column 1 (char 0)
+# local variable 'user_id' referenced before assignment
+
 class ChatServer(object):
     RECEIVE_NUMS = 1024
 
-    def __init__(self, host='127.0.0.1', port=8888, num=5):
+    def __init__(self, host='127.0.0.1', port=8888, num=1):
         self.s = socket.socket()  # 创建套接字
         self.s.bind((host, port))  # 绑定端口
         self.s.listen(num)  # 开始监听，在拒绝链接之前，操作系统可以挂起的最大连接数据量，一般设置为5。超过后排队
@@ -24,42 +28,51 @@ class ChatServer(object):
         while True:
             events = self.epoll_obj.poll(10)  # 获取活跃事件，返回等待事件
             for fd, event in events:  # 遍历每一个活跃事件
-                print(fd, event)
                 if fd == self.s.fileno():  # 返回control fd的文件描述符。 # 其实这一步我一直没看懂.来一个新的连接，总会走到这一行
-                    # 应该要在这里完成连接建立以及配置更新
-                    conn, addr = self.s.accept()  # 准备接收数据
-                    self.update_fd_and_socket_map(conn.fileno(), conn)
-                    self.register_conn_to_epoll(conn)
-                    msg = self.receive_msg(conn)
-                    user_id, _, _ = self.analyse_msg(msg)
-                    self.update_user_and_fd_map(user_id, conn.fileno())
-                    self.send_msg("connect success", conn)
+                    # 第一次连接，会走到这一行。需要携带自己的信息，才能注册成功
+                    conn, addr = self.s.accept()  # 获取连接的socket
+                    self.register(conn)
                 else:
                     try:
-                        conn = self.get_conn_by_fd(fd)
-                        msg = self.receive_msg(conn)
-                        user_id, target_id, msg = self.analyse_msg(msg)
-                        target_conn = self.get_conn_by_user_id(target_id)
-                        self.send_msg(msg, target_conn)
-                        self.send_msg("received", conn)
+                        self.response(fd)  # 这里就是具体的socket对应的文件描述符
                     except BrokenPipeError:
-                        self.unregister_conn_from_epoll(fd)
-                        self.close_socekt(self.get_conn_by_fd(fd))
-                        self.del_fd_from_fd_and_socket_map(fd)
+                        self.send_msg("please break connect", conn)
+                        self.close_conn(fd)
                     except Exception as e:
                         print(e)
-                        self.send_msg("received faild", conn)
-                # 执行最终的异常处理
 
-            # s.close()
-            # epoll_obj.close()
+    def close_conn(self, fd):
+        self.unregister_conn_from_epoll(fd)
+        self.close_socekt(self.get_conn_by_fd(fd))
+        self.del_fd_from_fd_and_socket_map(fd)
+
+    def register(self, conn):
+        # 首次获取到足够的信息后才能继续向下注册
+        msg = self.receive_msg(conn)
+        user_id, _, _, end = self.analyse_msg(msg)
+        if not end:
+            self.register_conn_to_epoll(conn)
+            self.update_fd_and_socket_map(conn.fileno(), conn)
+            self.update_user_and_fd_map(user_id, conn.fileno())
+            self.send_msg("connect success", conn)
+            print("registe user:{} success".format(user_id))
+
+    def response(self, fd):
+        conn = self.get_conn_by_fd(fd)
+        msg = self.receive_msg(conn)
+        user_id, target_id, msg, end = self.analyse_msg(msg)
+        if end:
+            self.send_msg(msg, conn)
+            self.close_conn(fd)
+        else:
+            target_conn = self.get_conn_by_user_id(target_id)
+            self.send_msg(msg, target_conn)
+            print("user:{} send msg:{} to user:{}".format(user_id, msg, target_id))
 
     @staticmethod
     def receive_msg(conn):
         # TODO 这里默认每个聊天的消息长度都在1024个字节一下
-        msg = conn.recv(ChatServer.RECEIVE_NUMS)
-        print("conn recv msg {}".format(msg))
-        return msg
+        return conn.recv(ChatServer.RECEIVE_NUMS)
 
     def register_conn_to_epoll(self, conn):
         self.epoll_obj.register(conn, select.EPOLLIN)  # 文件描述符注册如果已经存在，则会报错
@@ -77,8 +90,6 @@ class ChatServer(object):
         :param fd: file distribute
         :return: NOne
         """
-        print("update user id {}, fd {}".format(user_id, fd))
-        print(self.user_fd_map)
         if self.user_fd_map.get(user_id):
             print("fd exist, it may be a error, fd is {}, origin user_id is {}".format(
                 self.user_fd_map[user_id], user_id)
@@ -90,8 +101,6 @@ class ChatServer(object):
         更新文件描述符号与具体的socket连接
         :return:
         """
-        print("update fd id {}, socket {}".format(fd, socket))
-        print(self.fd_conn_map)
         if self.fd_conn_map.get(fd):
             print("fd exist, it may be a error, fd is {}".format(fd))
         self.fd_conn_map[fd] = socket
@@ -125,24 +134,28 @@ class ChatServer(object):
         self.s.close()
 
     @staticmethod
-    def analyse_msg(msg: bytes) -> Tuple[int, str]:
+    def analyse_msg(msg: bytes) -> Tuple[int, int, str, bool]:
         try:
-            print("recv msg", msg)
-            msg = json.loads(msg.decode(encoding="utf-8"))
-            user_id = msg["user_id"]
-            target_id = msg["target_id"]
-            msg = msg["msg"]
+            data = json.loads(msg.decode(encoding="utf-8"))
+            print(msg)
+            user_id = data["user_id"]
+            target_id = data["target_id"]
+            msg = data["msg"]
+            end = data["end"]
             # img = msg.get("img")
         except Exception as e:
+            print(e)
             target_id = user_id
-            msg = "消息解析失败，请重新发送"
+            msg = "消息解析失败，会话关闭"
             user_id = user_id
-        return user_id, target_id, msg
+            end = 0
+        if end: msg = "连接已经断开"
+        return user_id, target_id, msg, end
 
     @staticmethod
     def send_msg(msg: str, conn):
         conn.sendall(msg.encode(encoding="utf-8"))
 
 
-a = ChatServer(port=8016)
+a = ChatServer(port=8529)
 a.run()
