@@ -5,6 +5,10 @@ import json
 import socket
 import select
 from typing import Tuple
+import traceback
+from heart_beat import HeartBeat
+from multiprocessing import Queue
+from threading import Thread
 
 
 # TODO client 端主动断开连接，server会抛出异常
@@ -23,6 +27,27 @@ class ChatServer(object):
         self.user_fd_map = {}
         self.fd_conn_map = {}
         self.receive_nums = 1024
+        self.need_clean_user = Queue(2048)
+        self.heart_beat()
+        self.clean_user()
+
+    def heart_beat(self):
+        hb = HeartBeat(self.user_fd_map, self.user_fd_map, self.need_clean_user)
+        t = Thread(target=hb.run)
+        t.start()
+
+    def clean_user(self):
+        def clean_user():
+            while True:
+                try:
+                    user = self.need_clean_user.get()
+                    print("clean user:{} now".format(user))
+                    self.unregister_user(user)
+                    print("clean user:{} sucess".format(user))
+                except Exception as e:
+                    print("clear user raise exception: {}".format(traceback.format_exc()))
+        t = Thread(target=clean_user)
+        t.start()
 
     def run(self):
         while True:
@@ -40,6 +65,11 @@ class ChatServer(object):
                         self.close_conn(fd)
                     except Exception as e:
                         print(e)
+
+    def unregister_user(self, uesr):
+        fd = self.user_fd_map[uesr]
+        del self.user_fd_map[uesr]
+        self.close_conn(fd)
 
     def close_conn(self, fd):
         self.unregister_conn_from_epoll(fd)
