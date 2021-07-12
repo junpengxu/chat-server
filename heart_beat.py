@@ -26,7 +26,7 @@ class HeartBeat:
                 try:
                     # 十秒轮训一次
                     if user not in self.user_check_time_map or self.user_check_time_map[
-                        user] + self.check_interview > time.time():
+                        user] + self.check_interview < time.time():
                         self.ping(user_conn)
                         self.user_check_time_map[user] = time.time()
                 except BrokenPipeError:

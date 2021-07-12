@@ -67,10 +67,19 @@ class ChatServer(object):
                     except Exception as e:
                         print(e)
 
-    def unregister_user(self, uesr):
-        fd = self.user_fd_map[uesr]
-        del self.user_fd_map[uesr]
+    def unregister_by_user(self, user):
+        fd = self.user_fd_map[user]
+        del self.user_fd_map[user]
         self.close_conn(fd)
+
+    def unregister_by_fd(self, fd):
+        try:
+            for user, _fd in self.user_fd_map.items():
+                if fd == _fd: break
+            del self.user_fd_map[user]
+            self.close_conn(fd)
+        except Exception as e:
+            print("unregister_by_fd raise error", traceback.print_exc())
 
     def close_conn(self, fd):
         self.unregister_conn_from_epoll(fd)
@@ -93,8 +102,7 @@ class ChatServer(object):
         msg = self.receive_msg(conn)
         if not msg:
             print("receive empty, may be user close conn")
-            # TODO  还需要查出对应的user，一起清理
-            self.close_conn(fd)
+            self.unregister_by_fd(fd)
             return
         user_id, target_id, msg, end = self.analyse_msg(msg)
         if end:
