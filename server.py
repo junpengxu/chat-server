@@ -2,6 +2,7 @@
 # @Time    : 2021/7/1 10:53 下午
 # @Author  : xu.junpeng
 import json
+import pdb
 import socket
 import select
 from typing import Tuple
@@ -32,7 +33,7 @@ class ChatServer(object):
         self.clean_user()
 
     def heart_beat(self):
-        hb = HeartBeat(self.user_fd_map, self.user_fd_map, self.need_clean_user)
+        hb = HeartBeat(self.user_fd_map, self.fd_conn_map, self.need_clean_user)
         t = Thread(target=hb.run)
         t.start()
 
@@ -90,6 +91,11 @@ class ChatServer(object):
     def response(self, fd):
         conn = self.get_conn_by_fd(fd)
         msg = self.receive_msg(conn)
+        if not msg:
+            print("receive empty, may be user close conn")
+            # TODO  还需要查出对应的user，一起清理
+            self.close_conn(fd)
+            return
         user_id, target_id, msg, end = self.analyse_msg(msg)
         if end:
             self.send_msg(msg, conn)
@@ -143,6 +149,7 @@ class ChatServer(object):
         根据文件描述符号获取具体的socket
         :return:
         """
+        # TODO 用户主动断开连接后，这里会出现异常
         return self.fd_conn_map[fd]
 
     def get_conn_by_user_id(self, user_id):
@@ -167,7 +174,6 @@ class ChatServer(object):
     def analyse_msg(msg: bytes) -> Tuple[int, int, str, bool]:
         try:
             data = json.loads(msg.decode(encoding="utf-8"))
-            print(msg)
             user_id = data["user_id"]
             target_id = data["target_id"]
             msg = data["msg"]
