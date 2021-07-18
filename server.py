@@ -2,7 +2,7 @@
 # @Time    : 2021/7/1 10:53 下午
 # @Author  : xu.junpeng
 import json
-import pdb
+import redis
 import socket
 import select
 from typing import Tuple
@@ -10,6 +10,7 @@ import traceback
 from heart_beat import HeartBeat
 from multiprocessing import Queue
 from threading import Thread
+from store.memory import Memory
 
 
 # TODO client 端主动断开连接，server会抛出异常
@@ -20,6 +21,7 @@ class ChatServer(object):
     RECEIVE_NUMS = 1024
 
     def __init__(self, host='127.0.0.1', port=8888, num=1):
+        self.redis_cli = redis.StrictRedis(host='localhost', port=6379, db=15, decode_responses=True)
         self.s = socket.socket()  # 创建套接字
         self.s.bind((host, port))  # 绑定端口
         self.s.listen(num)  # 开始监听，在拒绝链接之前，操作系统可以挂起的最大连接数据量，一般设置为5。超过后排队
@@ -29,6 +31,9 @@ class ChatServer(object):
         self.fd_conn_map = {}
         self.receive_nums = 1024
         self.need_clean_user = Queue(2048)
+        # self.user_fd_map = Memory.user_fd_map
+        # self.fd_conn_map = Memory.fd_conn_map
+        # self.need_clean_user = Memory.need_clean_user
         self.heart_beat()
         self.clean_user()
 
@@ -47,6 +52,7 @@ class ChatServer(object):
                     print("clean user:{} sucess".format(user))
                 except Exception as e:
                     print("clear user raise exception: {}".format(traceback.format_exc()))
+
         t = Thread(target=clean_user)
         t.start()
 
@@ -178,22 +184,22 @@ class ChatServer(object):
     def close_server(self):
         self.s.close()
 
-    @staticmethod
-    def analyse_msg(msg: bytes) -> Tuple[int, int, str, bool]:
+    def analyse_msg(self, msg: bytes) -> Tuple[int, int, str, bool]:
         try:
             data = json.loads(msg.decode(encoding="utf-8"))
-            user_id = data["user_id"]
+            user_id = int(self.redis_cli.get(data["session_id"]))
             target_id = data["target_id"]
             msg = data["msg"]
             end = data["end"]
             # img = msg.get("img")
         except Exception as e:
-            print(e)
-            target_id = user_id
+            print(traceback.format_exc())
+            target_id = 0
             msg = "消息解析失败，会话关闭"
-            user_id = user_id
-            end = 0
-        if end: msg = "连接已经断开"
+            user_id = 0
+            end = 1 # 直接结束会话
+        if end:
+            msg = "连接已经断开"
         return user_id, target_id, msg, end
 
     @staticmethod
