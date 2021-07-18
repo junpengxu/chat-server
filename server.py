@@ -68,7 +68,7 @@ class ChatServer(object):
                     try:
                         self.response(fd)  # 这里就是具体的socket对应的文件描述符
                     except BrokenPipeError:
-                        self.send_msg("please break connect", conn)
+                        self.send_msg(json.dumps({"msg": "please break connect"}), conn)
                         self.close_conn(fd)
                     except Exception as e:
                         print(e)
@@ -100,7 +100,7 @@ class ChatServer(object):
             self.register_conn_to_epoll(conn)
             self.update_fd_and_socket_map(conn.fileno(), conn)
             self.update_user_and_fd_map(user_id, conn.fileno())
-            self.send_msg("connect success", conn)
+            self.send_msg(json.dumps({"msg": "connect success"}), conn)
             print("registe user:{} success".format(user_id))
 
     def response(self, fd):
@@ -112,11 +112,11 @@ class ChatServer(object):
             return
         user_id, target_id, msg, end = self.analyse_msg(msg)
         if end:
-            self.send_msg(msg, conn)
+            self.send_msg(json.dumps({"msg": msg}), conn)
             self.close_conn(fd)
         else:
             target_conn = self.get_conn_by_user_id(target_id)
-            self.send_msg(msg, target_conn)
+            self.send_msg(json.dumps({"user_id": user_id, "msg": msg}), target_conn)
             print("user:{} send msg:{} to user:{}".format(user_id, msg, target_id))
 
     @staticmethod
@@ -197,7 +197,7 @@ class ChatServer(object):
             target_id = 0
             msg = "消息解析失败，会话关闭"
             user_id = 0
-            end = 1 # 直接结束会话
+            end = 1  # 直接结束会话
         if end:
             msg = "连接已经断开"
         return user_id, target_id, msg, end
