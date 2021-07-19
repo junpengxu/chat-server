@@ -25,17 +25,28 @@ class ChatServer(object):
         self.s = socket.socket()  # 创建套接字
         self.s.bind((host, port))  # 绑定端口
         self.s.listen(num)  # 开始监听，在拒绝链接之前，操作系统可以挂起的最大连接数据量，一般设置为5。超过后排队
+        # self.epoll_obj = select.epoll()  # 使用epoll模型
         self.epoll_obj = select.epoll()  # 使用epoll模型
         self.epoll_obj.register(self.s, select.EPOLLIN)  # 把自己给注册了？
-        self.user_fd_map = {}
-        self.fd_conn_map = {}
         self.receive_nums = 1024
-        self.need_clean_user = Queue(2048)
-        # self.user_fd_map = Memory.user_fd_map
-        # self.fd_conn_map = Memory.fd_conn_map
-        # self.need_clean_user = Memory.need_clean_user
+        # self.user_fd_map = {}
+        # self.fd_conn_map = {}
+        # self.need_clean_user = Queue(2048)
+        self.broker = Memory()
+        self.user_fd_map = self.broker.user_fd_map
+        self.fd_conn_map = self.broker.fd_conn_map
+        self.need_clean_user = self.broker.need_clean_user
+        self.listen_new_user_conn()
         self.heart_beat()
         self.clean_user()
+
+    def listen_new_user_conn(self):
+        """
+        有新用户连接进来后，仅执行一次，检查是否有未读消息。如果有，遍历消息发送给用户
+        :return:
+        """
+        pass
+
 
     def heart_beat(self):
         hb = HeartBeat(self.user_fd_map, self.fd_conn_map, self.need_clean_user)
@@ -98,7 +109,7 @@ class ChatServer(object):
         user_id, _, _, end = self.analyse_msg(msg)
         if not end:
             self.register_conn_to_epoll(conn)
-            self.update_fd_and_socket_map(conn.fileno(), conn)
+            self.update_fd_and_conn_map(conn.fileno(), conn)
             self.update_user_and_fd_map(user_id, conn.fileno())
             self.send_msg(json.dumps({"msg": "connect success"}), conn)
             print("registe user:{} success".format(user_id))
@@ -146,7 +157,7 @@ class ChatServer(object):
             )
         self.user_fd_map[user_id] = fd
 
-    def update_fd_and_socket_map(self, fd, socket):
+    def update_fd_and_conn_map(self, fd, socket):
         """
         更新文件描述符号与具体的socket连接
         :return:

@@ -2,7 +2,9 @@
 # @Time    : 2021/7/12 8:49 下午
 # @Author  : xu.junpeng
 import time
+import json
 import traceback
+
 
 class HeartBeat:
     def __init__(self, user_fd_map, fd_conn_map, unregisgter_user):
@@ -38,7 +40,7 @@ class HeartBeat:
                     self.unregisgter_user.put(user)
 
     def ping(self, conn):
-        conn.sendall("ping".encode(encoding="utf-8"))
+        conn.sendall(json.dumps({"msg": "ping"}).encode(encoding="utf-8"))
 
     def run(self):
         self.scan()

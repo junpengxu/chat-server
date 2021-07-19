@@ -3,24 +3,19 @@
 # @Author  : xu.junpeng
 from multiprocessing import Queue
 
+
 # TODO 使用代理模式
 class Memory:
     def __init__(self, clean_user_queue_cnt=2048):
-        self.user_fd_map = {}
-        self.fd_conn_map = {}
-        self.need_clean_user = Queue(2048)
+        self._user_fd_map = {}
+        self._fd_conn_map = {}
+        self.need_clean_user = Queue(clean_user_queue_cnt)
 
-    def update(self):
-        pass
+    @property
+    def user_fd_map(self):
+        return self._user_fd_map
 
-    def remove(self):
-        pass
+    @property
+    def fd_conn_map(self):
+        return self._fd_conn_map
 
-    def gen_user_fd_map(self):
-        pass
-
-    def gen_fe_conn_map(self):
-        pass
-
-    def gen_clean_user_queue(self):
-        pass
