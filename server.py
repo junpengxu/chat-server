@@ -8,7 +8,6 @@ import select
 from typing import Tuple
 import traceback
 from heart_beat import HeartBeat
-from multiprocessing import Queue
 from threading import Thread
 from store.memory import Memory
 
@@ -29,9 +28,6 @@ class ChatServer(object):
         self.epoll_obj = select.epoll()  # 使用epoll模型
         self.epoll_obj.register(self.s, select.EPOLLIN)  # 把自己给注册了？
         self.receive_nums = 1024
-        # self.user_fd_map = {}
-        # self.fd_conn_map = {}
-        # self.need_clean_user = Queue(2048)
         self.broker = Memory()
         self.user_fd_map = self.broker.user_fd_map
         self.fd_conn_map = self.broker.fd_conn_map
@@ -57,13 +53,14 @@ class ChatServer(object):
         def clean_user():
             while True:
                 try:
+                    # 这段代码，基本不会被走到，因为通过心跳检测发现用户离开了，比较慢
+                    # 第二点，用户离开后但是本地还没有断开文件描述符，会一直接收到空数据，继而触发后续清理操作
                     user = self.need_clean_user.get()
                     print("clean user:{} now".format(user))
-                    self.unregister_user(user)
+                    self.unregister_by_user(user)
                     print("clean user:{} sucess".format(user))
                 except Exception as e:
                     print("clear user raise exception: {}".format(traceback.format_exc()))
-
         t = Thread(target=clean_user)
         t.start()
 

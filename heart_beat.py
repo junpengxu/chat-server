@@ -20,11 +20,13 @@ class HeartBeat:
             # 应该每个用户在固定的轮训期间内被发送心跳检测。
             # 用户主动上报心跳
             print('user_fd_map', self.user_fd_map)
-            print("fd_conn_map", self.fd_conn_map)
+            # print("fd_conn_map", self.fd_conn_map)
             user_list = list(self.user_fd_map.keys())
             for user in user_list:
                 user_conn = self.fd_conn_map.get(self.user_fd_map[user], None)
-                if not user_conn: self.unregisgter_user.put(user)
+                if not user_conn:
+                    # TODO 这里基本捕获不到。当用户主动断开连接，会发送一个空字符，本地解析不了。触发了断开连接的逻辑
+                    self.unregisgter_user.put(user)
                 try:
                     # 十秒轮训一次
                     if user not in self.user_check_time_map or self.user_check_time_map[
