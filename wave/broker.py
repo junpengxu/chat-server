@@ -6,7 +6,7 @@
 """
 import time
 import json
-from message import ResponseMsg, Message
+from wave.message import ConnFailMsg, Message, PingMsg, ConnSuccessMsg
 from dispatcher import Dispatcher
 from threading import Thread
 
@@ -74,9 +74,9 @@ class Broker:
         :return:
         """
         if self.user_id:
-            self.conn.sendall(ResponseMsg({"msg": "连接成功, 开始聊天吧"}).to_bytes())
+            self.conn.sendall(ConnSuccessMsg().to_bytes())
         else:
-            self.conn.sendall(ResponseMsg({"msg": "连接失败, 连接已断开"}).to_bytes())
+            self.conn.sendall(ConnFailMsg().to_bytes())
 
     def response(self, msg):
         self.conn.sendall(Message(msg).to_bytes())
@@ -88,7 +88,7 @@ class Broker:
         while True:
             try:
                 # 用户主动断开连接，此处会抛出异常
-                self.conn.sendall(ResponseMsg({"msg": "ping"}).to_bytes())
+                self.conn.sendall(PingMsg().to_bytes())
             except Exception as e:
                 self.unregiste()
                 break

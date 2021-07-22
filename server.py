@@ -5,11 +5,12 @@ import json
 import redis
 import socket
 import select
+import parser
 import traceback
-from store.memory import Memory
-from message import ConnectMsg
-from broker import Broker
-from dispatcher import Dispatcher
+from wave.store.memory import Memory
+from wave.message import ConnectMsg
+from wave.broker import Broker
+from wave.dispatcher import Dispatcher
 
 
 class ChatServer(object):
@@ -27,12 +28,9 @@ class ChatServer(object):
 
     @staticmethod
     def receive_msg(conn):
-        # TODO 这里默认每个聊天的消息长度都在1024个字节一下
         return conn.recv(ChatServer.RECEIVE_NUMS)
 
     def register(self, conn):
-        # 默认首次连接，数据中要携带session, 以此分配broker
-        # 如果数据非法, 则不执行注册操作, 并且关闭连接。这部分代码只有首次连接到server的时候才会进入。如果这里信息解析失败，是没有办法再次解析的
         self.register_conn_to_epoll(conn)
         broker = Broker(conn=conn)
         try:
@@ -65,19 +63,12 @@ class ChatServer(object):
                     broker.registe()  # 把自己注册到dispatcher中
                 else:
                     try:
-                        # 选择broker, 如果是client关闭了，这里会输出空数据
                         broker = self.dispatcher.dispatch(fd)
                         broker.process()
                     except Exception:
-                        # 找不到这个fd的连接信息，这个fd不是首次连接，但是维护的连接信息中找不到。一般是服务有问题，并且是严重问题
-                        # 需要对出问题的环节做处理
-                        # 目前先断开连接
-                        # client断开连接后， 要从epoll中删除
                         print(traceback.format_exc())
-                        # 从 epoll中删除连接
                         self.epoll_obj.unregister(fd)
-                        # 把 socket 关闭
 
-
-a = ChatServer(port=8529)
-a.run()
+if __name__ == '__main__':
+    a = ChatServer(port=8529)
+    a.run()
