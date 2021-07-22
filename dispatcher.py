@@ -18,8 +18,12 @@ class Dispatcher:
     def add_broker(self, broker):
         self.broker_map[broker.user_id] = broker
 
-    def remove_broker(self, uesr_id):
-        pass
+    def remove_broker(self, user_id):
+        del self.broker_map[user_id]
+        fd = None
+        for fd, _user_id in self.fd_map.items():
+            if user_id == _user_id: break
+        if fd != None: del self.fd_map[fd]
 
     def dispatch(self, fd):
         """
@@ -41,5 +45,5 @@ class Dispatcher:
         """
         pass
 
-    def register(self, ):
+    def destroy_broker(self):
         pass

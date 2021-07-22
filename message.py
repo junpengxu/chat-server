@@ -15,6 +15,7 @@ class Message(SerializeByte2Dict):
         维护消息结构， 将读取到的消除处理成对应的结构
         """
         # self.session_id = None
+        super().__init__()
         self.target_id = None
         self.timestamp = None
         self.msg = None
@@ -53,6 +54,3 @@ class ResponseMsg(SerializeByte2Dict):
         self.timestamp = None
         self.loads(msg)
 
-
-msg = Message(
-    b'{"target_id": 100002, "session_id": feoedd2321321, "msg": "发送给user_id为100002的用户", "img": "图片地址", "timestamp": 123321123}')
