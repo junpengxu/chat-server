@@ -5,6 +5,7 @@ import json
 import redis
 import socket
 import select
+import traceback
 from store.memory import Memory
 from message import ConnectMsg
 from broker import Broker
@@ -42,6 +43,7 @@ class ChatServer(object):
             broker.fd = conn.fileno()
             broker.online = True
         except Exception as e:
+            print(traceback.format_exc())
             print("register fail")
         return broker
 
@@ -63,24 +65,18 @@ class ChatServer(object):
                     broker.registe()  # 把自己注册到dispatcher中
                 else:
                     try:
-                        # 选择broker
+                        # 选择broker, 如果是client关闭了，这里会输出空数据
                         broker = self.dispatcher.dispatch(fd)
-                    except KeyError:
+                        broker.process()
+                    except Exception:
                         # 找不到这个fd的连接信息，这个fd不是首次连接，但是维护的连接信息中找不到。一般是服务有问题，并且是严重问题
                         # 需要对出问题的环节做处理
                         # 目前先断开连接
-                        return
-                    try:
-                        # broker 开始处理响应
-                        broker.process()
-                    except BrokenPipeError:
-                        # 连接已经被用户主动断开， 由broker抛出
-                        pass
-                        # 执行断开连接以及后续操作
-                        # self.send_msg(json.dumps({"msg": "please break connect"}), conn)
-                        # self.close_conn(fd)
-                    except Exception as e:
-                        print(e)
+                        # client断开连接后， 要从epoll中删除
+                        print(traceback.format_exc())
+                        # 从 epoll中删除连接
+                        self.epoll_obj.unregister(fd)
+                        # 把 socket 关闭
 
 
 a = ChatServer(port=8529)

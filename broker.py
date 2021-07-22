@@ -5,7 +5,7 @@
 使用broker来处理消息, 一个用户对应了一个borker
 """
 import time
-
+import json
 from message import ResponseMsg, Message
 from dispatcher import Dispatcher
 from threading import Thread
@@ -29,7 +29,7 @@ class Broker:
 
     def send(self, target_id, msg):
         target_broker = self.dispatcher.dispatch_by_user_id(target_id)
-        target_broker.response(msg.msg)
+        target_broker.response(msg.to_dict())
 
     def process(self):
         """
@@ -41,12 +41,15 @@ class Broker:
         :return:
         """
         # 数据装载不成功会抛出异常
-        msg = Message(self.recv())
+        msg = Message(json.loads(self.recv().decode("utf-8")))
         self.send(target_id=msg.target_id, msg=msg)
 
     def recv(self):
         # 定义常量去替换
         return self.conn.recv(self.RECEIVE_NUMS)
+
+    def close(self):
+        self.conn.close()
 
     def pull_msg(self):
         pass
@@ -61,6 +64,7 @@ class Broker:
         self.response_connect()
 
     def unregiste(self):
+        self.close()
         self.dispatcher.remove_broker(self)
 
     def response_connect(self):
@@ -70,12 +74,12 @@ class Broker:
         :return:
         """
         if self.user_id:
-            self.conn.sendall(ResponseMsg({"msg": "连接成功, 开始聊天吧"}))
+            self.conn.sendall(ResponseMsg({"msg": "连接成功, 开始聊天吧"}).to_bytes())
         else:
-            self.conn.sendall(ResponseMsg({"msg": "连接失败, 连接已断开"}))
+            self.conn.sendall(ResponseMsg({"msg": "连接失败, 连接已断开"}).to_bytes())
 
     def response(self, msg):
-        self.conn.sendall(Message(msg))
+        self.conn.sendall(Message(msg).to_bytes())
 
     def heart_beat(self):
         Thread(target=self._heart_beat).start()
@@ -83,10 +87,11 @@ class Broker:
     def _heart_beat(self):
         while True:
             try:
-                self.conn.sendall(ResponseMsg({"msg": "ping"}))
+                # 用户主动断开连接，此处会抛出异常
+                self.conn.sendall(ResponseMsg({"msg": "ping"}).to_bytes())
             except Exception as e:
                 self.unregiste()
-                return
+                break
             time.sleep(10)
 
     def destroy(self):

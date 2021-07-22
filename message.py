@@ -54,3 +54,6 @@ class ResponseMsg(SerializeByte2Dict):
         self.timestamp = None
         self.loads(msg)
 
+
+if __name__ == '__main__':
+    ResponseMsg({"msg": "连接失败, 连接已断开"}).to_bytes()

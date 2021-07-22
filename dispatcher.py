@@ -17,13 +17,16 @@ class Dispatcher:
 
     def add_broker(self, broker):
         self.broker_map[broker.user_id] = broker
+        self.fd_map[broker.fd] = broker.user_id
 
-    def remove_broker(self, user_id):
+    def remove_broker(self, broker):
+        user_id = broker.user_id
         del self.broker_map[user_id]
         fd = None
         for fd, _user_id in self.fd_map.items():
             if user_id == _user_id: break
-        if fd != None: del self.fd_map[fd]
+        if fd is not None:
+            del self.fd_map[fd]
 
     def dispatch(self, fd):
         """

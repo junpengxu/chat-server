@@ -21,7 +21,7 @@ class SerializeByte2Dict:
 
     def to_dict(self):
         data = {}
-        for attr, value in self.__dict__:
+        for attr, value in self.__dict__.items():
             data[attr] = value
         return data
 
