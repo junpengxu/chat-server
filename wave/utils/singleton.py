@@ -2,12 +2,13 @@
 # @Time    : 2021/7/22 1:41 上午
 # @Author  : xu.junpeng
 
-def singleton(cls, *args, **kw):
-    instance = {}
 
-    def _singleton():
-        if cls not in instance:
-            instance[cls] = cls(*args, **kw)
-        return instance[cls]
+def singleton(cls):
+    instances = {}
 
-    return _singleton
+    def getinstance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+
+    return getinstance

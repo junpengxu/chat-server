@@ -4,10 +4,13 @@
 """
 使用broker来处理消息, 一个用户对应了一个borker
 """
+import threading
 import time
 import json
-from wave.message import ConnFailMsg, Message, PingMsg, ConnSuccessMsg
-from dispatcher import Dispatcher
+import traceback
+
+from wave.message import ConnFailMsg, Message, PingMsg, ConnSuccessMsg, TargetOfflineMsg, SendSuccessMsg, ConnectMsg
+from wave.dispatcher import Dispatcher
 from threading import Thread
 
 
@@ -27,45 +30,58 @@ class Broker:
         self.dispatcher = Dispatcher()
         self.heart_beat()
 
+    def write_msg_to_db(self, msg):
+        print("write to db :", msg)
+
     def send(self, target_id, msg):
         target_broker = self.dispatcher.dispatch_by_user_id(target_id)
+        if not target_broker:
+            msg = TargetOfflineMsg()
+            msg.target_id = target_id
+            return self.response(msg.to_dict())
+        # 是否判断target 数据成功发送出去呢
         target_broker.response(msg.to_dict())
+        return self.response(SendSuccessMsg().to_dict())
 
     def process(self):
-        """
-        1. 接受数据
-        2. 解析数据
-        3. 做出响应
-
-        涉及到一个问题， 服务端是否可以需要根据用户端发送的断开连接的信号主动断开连接，这个断开链接的操作在哪里进行。断开连接之后Broker是否保留
-        :return:
-        """
         # 数据装载不成功会抛出异常
-        msg = Message(json.loads(self.recv().decode("utf-8")))
-        self.send(target_id=msg.target_id, msg=msg)
+        try:
+            if not self.user_id:
+                # 本次请求用来解析用户信息
+                msg = self.recv().decode("utf-8")
+                msg = ConnectMsg(json.loads(msg))
+                self.online = True
+                self.user_id = self.get_user_id_by_session_id(msg.session_id)
+                self.dispatcher.update_broker_user_info(self)
+                self.response(ConnSuccessMsg().to_dict())
+            else:
+                # 避免断开连接，接收到空的数据
+                msg = json.loads(self.recv().decode("utf-8"))
+                self.write_msg_to_db(msg)
+                msg = Message(msg)
+                if msg.end:
+                    self.unregiste()
+                else:
+                    self.send(target_id=msg.target_id, msg=msg)
+        except Exception as e:
+            # 什么情况下，接收到的都是空呢，用户主动断开了。 但是server还在recv
+            self.unregiste()
+            print(traceback.format_exc())
 
     def recv(self):
         # 定义常量去替换
         return self.conn.recv(self.RECEIVE_NUMS)
 
     def close(self):
-        self.conn.close()
-
-    def pull_msg(self):
-        pass
-
-    def registe(self):
-        """
-        把自己注册到全局的dispatcher中
-        :param dispatcher:
-        :return:
-        """
-        self.dispatcher.add_broker(self)
-        self.response_connect()
+        try:
+            self.conn.close()
+        except Exception as e:
+            print("重复关闭连接")
+            print(traceback.format_exc())
 
     def unregiste(self):
-        self.close()
         self.dispatcher.remove_broker(self)
+        self.close()
 
     def response_connect(self):
         """
@@ -79,7 +95,11 @@ class Broker:
             self.conn.sendall(ConnFailMsg().to_bytes())
 
     def response(self, msg):
-        self.conn.sendall(Message(msg).to_bytes())
+        print("msg is ", msg)
+        try:
+            self.conn.sendall(Message(msg).to_bytes())
+        except Exception as e:
+            print(traceback.format_exc())
 
     def heart_beat(self):
         Thread(target=self._heart_beat).start()
@@ -92,7 +112,19 @@ class Broker:
             except Exception as e:
                 self.unregiste()
                 break
-            time.sleep(10)
+            time.sleep(15)
+        print("finish heart beat")
+        return
 
     def destroy(self):
         pass
+
+    def get_user_id_by_session_id(self, session_id):
+        # user_id = int(self.redis_cli.get(session_id))
+        if session_id == '123':
+            return 1
+        elif session_id == '456':
+            return 2
+        elif session_id == '789':
+            return 3
+        return 0

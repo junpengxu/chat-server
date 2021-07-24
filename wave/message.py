@@ -74,7 +74,21 @@ class ConnSuccessMsg(Message):
 class ConnFailMsg(Message):
 
     def __init__(self):
-        self.msg = "连接成功，开始聊天吧"
+        self.msg = "连接失败, 连接已断开"
+        self.timestamp = time.time()
+
+
+class TargetOfflineMsg(Message):
+
+    def __init__(self):
+        self.msg = "对方不在线"
+        self.timestamp = time.time()
+
+
+class SendSuccessMsg(Message):
+
+    def __init__(self):
+        self.msg = "发送成功"
         self.timestamp = time.time()
 
 
