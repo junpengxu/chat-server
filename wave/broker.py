@@ -4,8 +4,8 @@
 """
 使用broker来处理消息, 一个用户对应了一个borker
 """
-import threading
 import time
+import redis
 import json
 import traceback
 
@@ -29,6 +29,7 @@ class Broker:
         self.online = online
         self.dispatcher = Dispatcher()
         self.heart_beat()
+        self.redis_cli = redis.StrictRedis(db=15)
 
     def write_msg_to_db(self, msg):
         print("write to db :", msg)
@@ -51,9 +52,12 @@ class Broker:
                 msg = self.recv().decode("utf-8")
                 msg = ConnectMsg(json.loads(msg))
                 self.online = True
+                # 获取不到用户id会抛出异常
                 self.user_id = self.get_user_id_by_session_id(msg.session_id)
                 self.dispatcher.update_broker_user_info(self)
                 self.response(ConnSuccessMsg().to_dict())
+                # 获取历史数据
+                self.send_unread_msg()
             else:
                 # 避免断开连接，接收到空的数据
                 msg = json.loads(self.recv().decode("utf-8"))
@@ -116,10 +120,7 @@ class Broker:
         print("finish heart beat")
         return
 
-    def destroy(self):
-        pass
-
-    def get_user_id_by_session_id(self, session_id):
+    def mock_get_user_id_by_session_id(self, session_id):
         # user_id = int(self.redis_cli.get(session_id))
         if session_id == '123':
             return 1
@@ -128,3 +129,17 @@ class Broker:
         elif session_id == '789':
             return 3
         return 0
+
+    def get_user_id_by_session_id(self, session_id):
+        user_id = int(self.redis_cli.get(session_id))
+        return user_id
+
+    def send_unread_msg(self):
+        msgs = self.pull_unread_msg()
+        for msg in msgs:
+            self.response(msg)
+
+    def pull_unread_msg(self):
+        # 最好是一次请求直接把所有的未读获取到
+        msgs = [{"session_id": "123", "target_id": 2, "msg": "history msg", "time": 123}] * 10
+        return msgs

@@ -12,7 +12,7 @@ from wave.dispatcher import Dispatcher
 
 
 class ChatServerV2:
-    def __init__(self, host='127.0.0.1', port=8888, num=256):
+    def __init__(self, host='0.0.0.0', port=12345, num=256):
         self.s = socket.socket()
         self.s.bind((host, port))
         self.s.listen(num)
@@ -45,5 +45,5 @@ class ChatServerV2:
 
 
 if __name__ == '__main__':
-    a = ChatServerV2(port=8000)
+    a = ChatServerV2(port=12345)
     a.run()
