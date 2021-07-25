@@ -17,7 +17,8 @@ class SerializeByte2Dict:
         """
         attrs = self.__dict__.keys()
         for attr in attrs:
-            setattr(self, attr, data.get(attr))
+            if attr != 'timestamp':
+                setattr(self, attr, data.get(attr))
 
     def to_dict(self):
         data = {}
@@ -27,3 +28,6 @@ class SerializeByte2Dict:
 
     def to_bytes(self):
         return json.dumps(self.to_dict()).encode("utf-8")
+
+    def dumps(self):
+        return json.dumps(self.to_dict())

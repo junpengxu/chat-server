@@ -8,7 +8,8 @@ import time
 import redis
 import json
 import traceback
-
+from json import JSONDecodeError
+from wave.utils.exception import UserNotFoundException
 from wave.message import ConnFailMsg, Message, PingMsg, ConnSuccessMsg, TargetOfflineMsg, SendSuccessMsg, ConnectMsg
 from wave.dispatcher import Dispatcher
 from threading import Thread
@@ -29,33 +30,40 @@ class Broker:
         self.online = online
         self.dispatcher = Dispatcher()
         self.heart_beat()
-        self.redis_cli = redis.StrictRedis(db=15)
+        self.redis_cli = redis.StrictRedis(db=15, decode_responses=True)
+        self.unread_prefix = "UNREAD_"
 
     def write_msg_to_db(self, msg):
         print("write to db :", msg)
 
-    def send(self, target_id, msg):
-        target_broker = self.dispatcher.dispatch_by_user_id(target_id)
+    def send(self, msg):
+        target_broker = self.dispatcher.dispatch_by_user_id(msg.target_id)
         if not target_broker:
-            msg = TargetOfflineMsg()
-            msg.target_id = target_id
-            return self.response(msg.to_dict())
+            # 目标用户不在线，应该去写入到存储中
+            self.save_unread_msg(msg)
+            return self.response(TargetOfflineMsg())
         # 是否判断target 数据成功发送出去呢
-        target_broker.response(msg.to_dict())
-        return self.response(SendSuccessMsg().to_dict())
+        target_broker.response(msg)
+        return self.response(SendSuccessMsg())
+
+    def save_unread_msg(self, msg):
+        # 写入redis
+        self.redis_cli.rpush(self.unread_prefix + str(msg.target_id), msg.to_bytes())
 
     def process(self):
         # 数据装载不成功会抛出异常
         try:
             if not self.user_id:
-                # 本次请求用来解析用户信息
-                msg = self.recv().decode("utf-8")
-                msg = ConnectMsg(json.loads(msg))
+                # 本次请求用来解析用户信息， 首次连接一定要携带session_id
+                msg = ConnectMsg(json.loads(self.recv().decode("utf-8")))
+                # 设置为在线
                 self.online = True
                 # 获取不到用户id会抛出异常
                 self.user_id = self.get_user_id_by_session_id(msg.session_id)
                 self.dispatcher.update_broker_user_info(self)
-                self.response(ConnSuccessMsg().to_dict())
+                msg = ConnSuccessMsg()
+                msg.user_id = self.user_id
+                self.response(msg)
                 # 获取历史数据
                 self.send_unread_msg()
             else:
@@ -63,10 +71,19 @@ class Broker:
                 msg = json.loads(self.recv().decode("utf-8"))
                 self.write_msg_to_db(msg)
                 msg = Message(msg)
+                # 手动添加user_id,表示发送信息的人
+                msg.user_id = self.user_id
+                # 结束回话标志
                 if msg.end:
                     self.unregiste()
                 else:
-                    self.send(target_id=msg.target_id, msg=msg)
+                    self.send(msg=msg)
+        except JSONDecodeError as e:
+            print(traceback.format_exc())
+            self.unregiste()
+        except UserNotFoundException as e:
+            print(traceback.format_exc())
+            self.unregiste()
         except Exception as e:
             # 什么情况下，接收到的都是空呢，用户主动断开了。 但是server还在recv
             self.unregiste()
@@ -98,11 +115,12 @@ class Broker:
         else:
             self.conn.sendall(ConnFailMsg().to_bytes())
 
-    def response(self, msg):
-        print("msg is ", msg)
+    def response(self, msg: Message):
+        print("msg is ", msg.to_dict())
         try:
-            self.conn.sendall(Message(msg).to_bytes())
+            self.conn.sendall(msg.to_bytes())
         except Exception as e:
+            print("发送消息失败", msg.to_dict())
             print(traceback.format_exc())
 
     def heart_beat(self):
@@ -139,7 +157,13 @@ class Broker:
         for msg in msgs:
             self.response(msg)
 
-    def pull_unread_msg(self):
-        # 最好是一次请求直接把所有的未读获取到
-        msgs = [{"session_id": "123", "target_id": 2, "msg": "history msg", "time": 123}] * 10
+    def pull_unread_msg(self) -> list:
+        msgs = []
+        while True:
+            msg = self.redis_cli.lpop(self.unread_prefix + str(self.user_id))
+            if msg:
+                print("unread msg: ", msg)
+                msgs.append(Message(json.loads(msg)))
+            else:
+                break
         return msgs

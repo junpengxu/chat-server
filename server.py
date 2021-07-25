@@ -43,7 +43,14 @@ class ChatServerV2:
                 callback = key.data
                 callback(key.fileobj, mask)
 
+    def close(self):
+        print("do close")
+        self.s.close()
+
 
 if __name__ == '__main__':
-    a = ChatServerV2(port=12345)
-    a.run()
+    try:
+        a = ChatServerV2(port=12345)
+        a.run()
+    except Exception as e:
+        a.close()

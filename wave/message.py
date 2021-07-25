@@ -16,23 +16,23 @@ class Message(SerializeByte2Dict):
         """
         # self.session_id = None
         super().__init__()
-        self.target_id = None
+        self.target_id = None  # 代表接受消息的用户
+        self.user_id = None  # 代表发送消息的用户
         self.timestamp = time.time()
         self.msg = None
         self.img = None
         self.end = False
         self.loads(msg)
 
-    # def __call__(self, msg=None, *args, **kwargs):
-    #     self.loads(msg)
 
-
+a = Message({"msg":"tt"})
+a.to_dict()
 class ConnectMsg(Message):
     """
     用户首次连接socket的时候发送的信息
     """
 
-    def __init__(self, msg):
+    def __init__(self, msg: dict):
         """
         维护消息结构， 将读取到的消除处理成对应的结构
         """
@@ -46,22 +46,6 @@ class PingMsg(Message):
     def __init__(self):
         self.msg = "ping"
         self.timestamp = time.time()
-
-
-class ResponseMsg(Message):
-    """
-    用户首次连接socket的时候发送的信息
-    """
-
-    def __init__(self, msg=None):
-        """
-        维护消息结构， 将读取到的消除处理成对应的结构
-        """
-        if msg is None:
-            msg = {}
-        self.msg = None
-        self.timestamp = time.time()
-        self.loads(msg)
 
 
 class ConnSuccessMsg(Message):
@@ -90,7 +74,3 @@ class SendSuccessMsg(Message):
     def __init__(self):
         self.msg = "发送成功"
         self.timestamp = time.time()
-
-
-if __name__ == '__main__':
-    ResponseMsg({"msg": "连接失败, 连接已断开"}).to_bytes()
