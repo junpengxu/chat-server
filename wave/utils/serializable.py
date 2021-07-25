@@ -31,3 +31,6 @@ class SerializeByte2Dict:
 
     def dumps(self):
         return json.dumps(self.to_dict())
+
+    def __repr__(self):
+        return 'class:{},info is:{}'.format(self.__class__.__name__, self.to_dict())

@@ -12,6 +12,7 @@ from json import JSONDecodeError
 from wave.utils.exception import UserNotFoundException
 from wave.message import ConnFailMsg, Message, PingMsg, ConnSuccessMsg, TargetOfflineMsg, SendSuccessMsg, ConnectMsg
 from wave.dispatcher import Dispatcher
+from wave.utils.logger import base_log
 from threading import Thread
 
 
@@ -32,23 +33,27 @@ class Broker:
         self.heart_beat()
         self.redis_cli = redis.StrictRedis(db=15, decode_responses=True)
         self.unread_prefix = "UNREAD_"
-
-    def write_msg_to_db(self, msg):
-        print("write to db :", msg)
+        self.msg_log_key = "MSG_LOG"
 
     def send(self, msg):
         target_broker = self.dispatcher.dispatch_by_user_id(msg.target_id)
         if not target_broker:
-            # 目标用户不在线，应该去写入到存储中
             self.save_unread_msg(msg)
             return self.response(TargetOfflineMsg())
+        # 数据持久化
+        self.save_msg(msg)
         # 是否判断target 数据成功发送出去呢
         target_broker.response(msg)
         return self.response(SendSuccessMsg())
 
     def save_unread_msg(self, msg):
         # 写入redis
+        base_log.info("{} unread msg {}".format(self, msg))
         self.redis_cli.rpush(self.unread_prefix + str(msg.target_id), msg.to_bytes())
+
+    def save_msg(self, msg):
+        base_log.info("{} save msg {}".format(self, msg))
+        self.redis_cli.rpush(self.msg_log_key, msg.to_bytes())
 
     def process(self):
         # 数据装载不成功会抛出异常
@@ -69,7 +74,6 @@ class Broker:
             else:
                 # 避免断开连接，接收到空的数据
                 msg = json.loads(self.recv().decode("utf-8"))
-                self.write_msg_to_db(msg)
                 msg = Message(msg)
                 # 手动添加user_id,表示发送信息的人
                 msg.user_id = self.user_id
@@ -97,12 +101,15 @@ class Broker:
         try:
             self.conn.close()
         except Exception as e:
-            print("重复关闭连接")
-            print(traceback.format_exc())
+            base_log.error("{} close conn repeat".format(self))
 
     def unregiste(self):
-        self.dispatcher.remove_broker(self)
-        self.close()
+        try:
+            base_log.info("broker {} unregiste".format(self))
+            self.dispatcher.remove_broker(self)
+            self.close()
+        except Exception as e:
+            base_log.error("{} unreigste raise error {}".format(self, traceback.format_exc()))
 
     def response_connect(self):
         """
@@ -116,7 +123,7 @@ class Broker:
             self.conn.sendall(ConnFailMsg().to_bytes())
 
     def response(self, msg: Message):
-        print("msg is ", msg.to_dict())
+        base_log.info("{} response {}".format(self, msg))
         try:
             self.conn.sendall(msg.to_bytes())
         except Exception as e:
@@ -132,21 +139,12 @@ class Broker:
                 # 用户主动断开连接，此处会抛出异常
                 self.conn.sendall(PingMsg().to_bytes())
             except Exception as e:
+                base_log.error("{} heart beat raise error".format(self))
                 self.unregiste()
                 break
-            time.sleep(15)
+            time.sleep(30)
         print("finish heart beat")
         return
-
-    def mock_get_user_id_by_session_id(self, session_id):
-        # user_id = int(self.redis_cli.get(session_id))
-        if session_id == '123':
-            return 1
-        elif session_id == '456':
-            return 2
-        elif session_id == '789':
-            return 3
-        return 0
 
     def get_user_id_by_session_id(self, session_id):
         user_id = int(self.redis_cli.get(session_id))
@@ -158,6 +156,7 @@ class Broker:
             self.response(msg)
 
     def pull_unread_msg(self) -> list:
+        base_log.info("pull_unread_msg:{}".format(Broker))
         msgs = []
         while True:
             msg = self.redis_cli.lpop(self.unread_prefix + str(self.user_id))
@@ -166,4 +165,9 @@ class Broker:
                 msgs.append(Message(json.loads(msg)))
             else:
                 break
+        base_log.info("broker:{},unread_msg is:{}".format(self, msgs))
         return msgs
+
+    def __repr__(self):
+        return 'class:{},user_id:{},fileno:{},online:{}'.format(self.__class__.__name__, self.user_id, self.fd,
+                                                                self.online)

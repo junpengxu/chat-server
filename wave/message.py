@@ -25,8 +25,6 @@ class Message(SerializeByte2Dict):
         self.loads(msg)
 
 
-a = Message({"msg":"tt"})
-a.to_dict()
 class ConnectMsg(Message):
     """
     用户首次连接socket的时候发送的信息

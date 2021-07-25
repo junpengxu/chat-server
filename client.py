@@ -31,17 +31,16 @@ class Client:
             if input_msg == '0':
                 return
             elif input_msg == '1':
-                self.s.sendall(b'{"session_id":"123", "target_id":2, "msg":"send to 2", "time":123}')
+                self.s.sendall(b'{"session_id":"MTY1ODMyOTA2Mi45Mjc4NzQ2OjViODBkYmFhNjE4OTg5MzQ2NmZiYmRlNDViYWZjYjgzNDU1MDZkODc=", "target_id":2, "msg":"send to 2"}')
             elif input_msg == '2':
-                self.s.sendall(b'{"session_id":"456", "target_id":1, "msg":"send to 1", "time":456}')
-            elif input_msg == '3':
-                self.s.sendall(b'{"session_id":"789", "target_id":1, "msg":"send to 3", "time":456}')
+                self.s.sendall(b'{"session_id":"MTY1ODMyOTY5OS45MDM3NDExOmIzMWQ2YzVhYzlmMjE4MzhkNmIyNDhjN2E5ZTViZDAxNDQwNjkyNGE=", "target_id":1, "msg":"send to 1"}')
+
 
     def close(self):
         self.s.close()
 if __name__ == '__main__':
+    c = Client('127.0.0.1', 12345)
     try:
-        c = Client('127.0.0.1', 8000)
         c.run()
     except Exception as e:
         print("关闭连接")

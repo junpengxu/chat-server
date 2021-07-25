@@ -10,6 +10,7 @@ import selectors
 from wave.broker import Broker
 from wave.dispatcher import Dispatcher
 
+from wave.utils.logger import base_log
 
 class ChatServerV2:
     def __init__(self, host='0.0.0.0', port=12345, num=256):
@@ -37,6 +38,7 @@ class ChatServerV2:
             self.dispatcher.remove_broker(self.dispatcher.dispatch(conn.fileno()))
 
     def run(self):
+        base_log.info("server running")
         while True:
             events = self.selector.select()
             for key, mask in events:
@@ -49,8 +51,8 @@ class ChatServerV2:
 
 
 if __name__ == '__main__':
+    a = ChatServerV2(port=12345)
     try:
-        a = ChatServerV2(port=12345)
         a.run()
     except Exception as e:
         a.close()
