@@ -17,6 +17,7 @@ class ChatServerV2:
         self.s = socket.socket()
         self.s.bind((host, port))
         self.s.listen(num)
+        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s.setblocking(False)
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.s, selectors.EVENT_READ, self.accept)

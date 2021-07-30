@@ -57,7 +57,8 @@ class ChatServer(object):
         return broker
 
     def register_conn_to_epoll(self, conn):
-        self.epoll_obj.register(conn, select.EPOLLIN)  # 文件描述符注册如果已经存在，则会报错
+        self.epoll_obj.register(conn.fileno(), select.EPOLLIN | select.EPOLLET)
+        # self.epoll_obj.register(conn, select.EPOLLIN)  # 文件描述符注册如果已经存在，则会报错, 这样注册，epoll不停的在响应
 
     def get_user_id_by_session_id(self, session_id):
         # user_id = int(self.redis_cli.get(session_id))
