@@ -37,7 +37,7 @@ class Server(WebSocket):
                 "time": _time,
                 "user_id": self.address_user_map[self.address],  # 从哪个用户发来的消息
             }
-            latter = json.loads(latter)
+            latter = json.dumps(latter)
             if not target:
                 return self.send_unread_msg(target_id, latter)
             # 组装消息，要带上发送方用户id
@@ -78,7 +78,7 @@ class Server(WebSocket):
     def registe_user(self):
         # 首次连接后，注册个人信息
         user_id = self.get_user_id()
-        base_log.info("registe uesr: {}", user_id)
+        base_log.info("registe uesr: {}".format(user_id))
         if user_id:
             self.user_instance_map[user_id] = self
             self.address_user_map[self.address] = user_id
