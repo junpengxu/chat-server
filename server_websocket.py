@@ -103,5 +103,5 @@ class Server(WebSocket):
 
 
 if __name__ == '__main__':
-    server = SimpleWebSocketServer('', 12344, Server)
+    server = SimpleWebSocketServer('', 12345, Server)
     server.serveforever()
