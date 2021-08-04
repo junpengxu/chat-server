@@ -4,12 +4,13 @@ import redis
 from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
 from wave.utils.logger import base_log
 
+
 class Server(WebSocket):
 
     def __init__(self, server, sock, address):
         self.user_instance_map = {}  # 保存用户id与对象
         self.address_user_map = {}  # 保存连接fd与用户id
-        self.unread_prefix = "UNREAD"
+        self.unread_prefix = "UNREAD-"
         self.redis_cli = redis.StrictRedis(db=15, decode_responses=True)
         super().__init__(server, sock, address)
 
@@ -47,7 +48,7 @@ class Server(WebSocket):
             print(e)
 
     def send_unread_msg(self, user_id, msg):
-        self.redis_cli.rpush(self.unread_prefix + "-" + str(user_id), msg)
+        self.redis_cli.rpush(self.unread_prefix + str(user_id), msg)
 
     def handleConnected(self):
         self.sendMessage("连接成功")
@@ -66,11 +67,14 @@ class Server(WebSocket):
     def get_history_msg(self, user_id):
         msgs = []
         while True:
-            msg = self.redis_cli.lpop(self.unread_prefix + "-" +str(user_id))
+            msg = self.redis_cli.lpop(self.unread_prefix + str(user_id))
             # msg 是json.dumps 之后的字符串
             if msg:
-                print("unread msg: ", msg)
-                msgs.append(msg)
+                try:
+                    print("unread msg: ", msg)
+                    msgs.append(json.loads(msg))
+                except Exception as e:
+                    base_log.error("uesr: {} load msg: {} raise error", user_id, msg)
             else:
                 break
         return msgs
@@ -87,7 +91,7 @@ class Server(WebSocket):
             return self.handleClose()
         history_msgs = self.get_history_msg(user_id)
         base_log.info("user:{} history msg is {}".format(user_id, history_msgs))
-        self.sendMessage(history_msgs)
+        self.sendMessage(json.dumps(history_msgs))
 
     def handleClose(self):
         user_id = self.address_user_map.get(self.address)
