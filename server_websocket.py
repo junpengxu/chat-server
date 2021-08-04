@@ -66,7 +66,7 @@ class Server(WebSocket):
     def get_history_msg(self, user_id):
         msgs = []
         while True:
-            msg = self.redis_cli.lpop(self.unread_prefix + str(user_id))
+            msg = self.redis_cli.lpop(self.unread_prefix + "-" +str(user_id))
             # msg 是json.dumps 之后的字符串
             if msg:
                 print("unread msg: ", msg)
@@ -99,5 +99,5 @@ class Server(WebSocket):
 
 
 if __name__ == '__main__':
-    server = SimpleWebSocketServer('', 12345, Server)
+    server = SimpleWebSocketServer('', 12344, Server)
     server.serveforever()
