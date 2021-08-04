@@ -5,11 +5,17 @@ from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
 from wave.utils.logger import base_log
 
 
+class User:
+    def __init__(self):
+        self.user_instance_map = {}  # 保存用户id与对象
+        self.address_user_map = {}  # 保存连接fd与用户id
+user_info = User()
+
 class Server(WebSocket):
 
     def __init__(self, server, sock, address):
-        self.user_instance_map = {}  # 保存用户id与对象
-        self.address_user_map = {}  # 保存连接fd与用户id
+        self.user_instance_map = user_info.user_instance_map  # 保存用户id与对象
+        self.address_user_map = user_info.address_user_map  # 保存连接fd与用户id
         self.unread_prefix = "UNREAD-"
         self.redis_cli = redis.StrictRedis(db=15, decode_responses=True)
         super().__init__(server, sock, address)
