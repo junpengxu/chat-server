@@ -6,8 +6,9 @@ from datetime import datetime
 import redis
 from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
 from wave.utils.logger import base_log
+from wave.utils.singleton import singleton
 
-
+@singleton
 class User:
     def __init__(self):
         self.user_instance_map = {}  # 保存用户id与对象
@@ -19,14 +20,13 @@ class User:
             time.sleep(30)
             if self.user_instance_map or self.address_user_map:
                 try:
-                    base_log.info("user_instance_map is {}", self.user_instance_map)
-                    base_log.info("address_user_map is {}", self.address_user_map)
+                    base_log.info("user_instance_map is {}".format(self.user_instance_map))
+                    base_log.info("address_user_map is {}".format(self.address_user_map))
                 except Exception as e:
                     base_log.error(traceback.format_exc())
 
 
 user_info = User()
-
 
 class Server(WebSocket):
 
