@@ -1,4 +1,7 @@
 import json
+import time
+import traceback
+import threading
 from datetime import datetime
 import redis
 from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
@@ -9,7 +12,21 @@ class User:
     def __init__(self):
         self.user_instance_map = {}  # 保存用户id与对象
         self.address_user_map = {}  # 保存连接fd与用户id
+        threading.Thread(target=self.listen).start()
+
+    def listen(self):
+        while True:
+            time.sleep(30)
+            if self.user_instance_map or self.address_user_map:
+                try:
+                    base_log.info("user_instance_map is {}", self.user_instance_map)
+                    base_log.info("address_user_map is {}", self.address_user_map)
+                except Exception as e:
+                    base_log.error(traceback.format_exc())
+
+
 user_info = User()
+
 
 class Server(WebSocket):
 
@@ -62,12 +79,13 @@ class Server(WebSocket):
 
     def get_token(self, headers=[]):
         for (key, value) in headers:
-            if key == "token":
+            if key == "Token":
                 return value
         base_log.info("token not found, address is {}".format(self.address))
         return ""
 
     def get_user_id(self):
+        base_log.info("request headrs is  {}".format(self.request.headers._headers))
         return self.redis_cli.get(self.get_token(self.request.headers._headers))
 
     def get_history_msg(self, user_id):
