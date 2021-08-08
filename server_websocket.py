@@ -92,7 +92,7 @@ class Server(WebSocket):
 
     def get_token(self, headers=[]):
         for (key, value) in headers:
-            if key == "Token":
+            if key == "token" or key == "Token":
                 return value
         base_log.info("token not found, address is {}".format(self.address))
         return ""
