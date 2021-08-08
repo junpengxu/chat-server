@@ -8,6 +8,7 @@ from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
 from wave.utils.logger import base_log
 from wave.utils.singleton import singleton
 
+
 @singleton
 class User:
     def __init__(self):
@@ -28,6 +29,7 @@ class User:
 
 user_info = User()
 
+
 class Server(WebSocket):
 
     def __init__(self, server, sock, address):
@@ -35,7 +37,11 @@ class Server(WebSocket):
         self.address_user_map = user_info.address_user_map  # 保存连接fd与用户id
         self.unread_prefix = "UNREAD-"
         self.redis_cli = redis.StrictRedis(db=15, decode_responses=True)
+        self.msg_log_key = "MES_LOG"
         super().__init__(server, sock, address)
+
+    def write_to_log(self, data):
+        self.redis_cli.rpush(self.msg_log_key, json.dumps(data))
 
     def handleMessage(self):
         # echo message back to client
@@ -62,6 +68,13 @@ class Server(WebSocket):
                 "user_id": self.address_user_map[self.address],  # 从哪个用户发来的消息
             }
             latter = json.dumps(latter)
+            _log = {
+                "target_id": target_id,
+                "msg": msg,
+                "time": _time,
+                "user_id": self.address_user_map[self.address],  # 从哪个用户发来的消息
+            }
+            self.write_to_log(_log)
             if not target:
                 return self.send_unread_msg(target_id, latter)
             # 组装消息，要带上发送方用户id
