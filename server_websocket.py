@@ -37,7 +37,7 @@ class Server(WebSocket):
         self.address_user_map = user_info.address_user_map  # 保存连接fd与用户id
         self.unread_prefix = "UNREAD-"
         self.redis_cli = redis.StrictRedis(db=15, decode_responses=True)
-        self.msg_log_key = "MES_LOG"
+        self.msg_log_key = "MSG_LOG"
         super().__init__(server, sock, address)
 
     def write_to_log(self, data):
