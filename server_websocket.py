@@ -67,7 +67,8 @@ class Server(WebSocket):
                 "time": _time,
                 "user_id": self.address_user_map[self.address],  # 从哪个用户发来的消息
             }
-            latter = json.dumps(latter)
+            # 以列表的形式发送
+            latter = json.dumps([latter])
             _log = {
                 "target_id": target_id,
                 "msg": msg,
