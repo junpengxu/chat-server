@@ -67,8 +67,6 @@ class Server(WebSocket):
                 "time": _time,
                 "user_id": self.address_user_map[self.address],  # 从哪个用户发来的消息
             }
-            # 以列表的形式发送
-            latter = json.dumps([latter])
             _log = {
                 "target_id": target_id,
                 "msg": msg,
@@ -77,12 +75,12 @@ class Server(WebSocket):
             }
             self.write_to_log(_log)
             if not target:
-                return self.send_unread_msg(target_id, latter)
+                return self.send_unread_msg(target_id, json.dumps(latter))
             # 组装消息，要带上发送方用户id
-            # 发送
-            target.sendMessage(latter)
+            # 以列表的形式发送
+            target.sendMessage(json.dumps([latter]))
         except Exception as e:
-            print(e)
+            base_log.info("handle msg raise error msg is: {}".format(traceback.format_exc()))
 
     def send_unread_msg(self, user_id, msg):
         self.redis_cli.rpush(self.unread_prefix + str(user_id), msg)
