@@ -53,7 +53,7 @@ class Server(WebSocket):
         """
         try:
             # 加载数据
-            base_log.info("msg is: {}".format(self.data))
+            base_log.info("user_id:{},msg is: {}".format(self.address_user_map[self.address], self.data))
             data = json.loads(self.data)
             # 选择发送方
             target_id = data.get("target_id")
